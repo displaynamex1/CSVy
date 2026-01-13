@@ -1,0 +1,81 @@
+model_name: model5_ensemble
+description: Optimal ensemble combining all models
+
+hyperparameters:
+  weight_method:
+    - inverse_rmse    # Weight inversely to error
+    - inverse_mae
+    - softmax         # Softmax of negative errors
+    - equal           # Simple average
+    - rank_based      # Weight by ranking
+    - learned         # Train meta-learner
+  
+  normalize_weights:
+    - true
+    - false
+  
+  meta_learner:
+    - linear
+    - ridge
+    - lasso
+    - elastic_net
+    - gradient_boosting
+  
+  meta_alpha:
+    - 0.001
+    - 0.01
+    - 0.1
+    - 1.0
+  
+  use_base_features:
+    - true            # Pass original features to meta-learner
+    - false           # Only use model predictions
+  
+  trim_extreme:
+    - 0.0             # Don't trim
+    - 0.1             # Trim 10% most extreme
+    - 0.2
+  
+  voting:
+    - soft            # Average probabilities
+    - hard            # Majority vote
+  
+  cv_folds:
+    - 5
+    - 10
+  
+  optimize_metric:
+    - rmse
+    - mae
+    - r2
+
+defaults:
+  weight_method: inverse_rmse
+  normalize_weights: true
+  meta_learner: ridge
+  meta_alpha: 0.1
+  use_base_features: false
+  trim_extreme: 0.0
+  voting: soft
+  cv_folds: 5
+  optimize_metric: rmse
+
+notes: |
+  Ensemble strategies from simplest to most complex:
+  
+  1. Equal weighting (simple average)
+  2. Inverse error weighting (better models weighted more)
+  3. Learned weights via meta-learner (stacking)
+  
+  For your 5 models:
+  - Model 1 (baseline) will have low weight
+  - Model 4 (XGBoost) will likely dominate
+  - Model 3 (ELO) adds domain knowledge
+  
+  Recommendations:
+  - Start with inverse_rmse weighting
+  - Use Ridge meta-learner if going for stacking
+  - Don't use base features initially (keeps it simple)
+  - Optimize for RMSE (matches your primary metric)
+  
+  This is your final deliverable - show how combination beats individuals!

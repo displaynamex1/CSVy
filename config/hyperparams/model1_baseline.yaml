@@ -1,0 +1,14 @@
+model_name: model1_baseline
+description: Simple average point differential baseline
+
+# No hyperparameters for baseline model (just calculates mean)
+# This file exists for consistency
+
+defaults:
+  aggregation: mean
+  groupby: team_name
+
+notes: |
+  Model 1 baseline computes average point differential per team.
+  No tuning needed - just aggregation logic.
+  Serves as benchmark for more complex models.

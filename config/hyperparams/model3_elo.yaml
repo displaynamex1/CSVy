@@ -1,0 +1,63 @@
+model_name: model3_elo
+description: ELO rating system with dynamic updates
+
+hyperparameters:
+  k_factor:
+    - 16
+    - 20
+    - 24
+    - 32
+    - 40
+  
+  initial_rating:
+    - 1400
+    - 1500
+    - 1600
+  
+  home_advantage:
+    - 0
+    - 50
+    - 75
+    - 100
+    - 150
+  
+  mov_multiplier:
+    - 0.0      # Ignore goal differential
+    - 0.5
+    - 1.0
+    - 1.5
+    - 2.0      # Heavy weight on goal differential
+  
+  season_carryover:
+    - 0.5      # 50% regression to mean
+    - 0.67
+    - 0.75
+    - 1.0      # Full carryover
+  
+  regression_mean:
+    - 1400
+    - 1500
+    - 1600
+
+defaults:
+  k_factor: 32
+  initial_rating: 1500
+  home_advantage: 100
+  mov_multiplier: 1.0
+  season_carryover: 0.75
+  regression_mean: 1500
+
+notes: |
+  K-factor: Higher = ratings change more per game (more volatile)
+  
+  Home advantage: Rating boost for home team (typical is 50-100)
+  
+  MOV multiplier: Weight margin of victory
+    - 0 = only win/loss matters
+    - Higher = goal differential matters more
+  
+  Season carryover: How much of rating to keep next season
+    - 1.0 = full carryover
+    - 0.67 = regress 1/3 toward mean
+  
+  This is important for presentation - implement from scratch!

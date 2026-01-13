@@ -10,6 +10,7 @@ require_relative 'lib/database_manager'
 require_relative 'lib/csv_diagnostics'
 require_relative 'lib/time_series_features'
 require_relative 'lib/csv_io_handler'
+require_relative 'lib/hyperparameter_manager'
 
 class CSVOrganizer < Thor
   desc "diagnose FILE", "Deep analysis of CSV data quality - detects mixed types, missing values, outliers, distribution issues"
@@ -470,6 +471,79 @@ class CSVOrganizer < Thor
     puts "✓ CSV copied to clipboard (#{data.length} rows)"
   rescue => e
     puts "✗ Error: #{e.message}"
+  end
+
+  # Hyperparameter Management
+  desc "hyperparam-grid CONFIG_FILE", "Generate hyperparameter grid from YAML config"
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file'
+  option :sample, aliases: :s, type: :numeric, desc: 'Sample N random configurations instead of full grid'
+  def hyperparam_grid(config_file)
+    hpm = HyperparameterManager.new
+    
+    if options[:sample]
+      output = hpm.random_search(config_file, options[:sample], options[:output])
+    else
+      output = hpm.generate_grid(config_file, options[:output], sample_size: options[:sample])
+    end
+    
+    puts "✓ Hyperparameter grid generated: #{output}"
+  end
+
+  desc "hyperparam-random CONFIG_FILE N", "Generate N random hyperparameter configurations"
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file'
+  def hyperparam_random(config_file, n)
+    hpm = HyperparameterManager.new
+    output = hpm.random_search(config_file, n.to_i, options[:output])
+    puts "✓ Random search configurations generated: #{output}"
+  end
+
+  desc "add-result TRACKING_FILE EXPERIMENT_ID", "Add experiment results to tracking file"
+  option :rmse, type: :numeric, desc: 'RMSE value'
+  option :mae, type: :numeric, desc: 'MAE value'
+  option :r2, type: :numeric, desc: 'R-squared value'
+  option :notes, aliases: :n, type: :string, desc: 'Notes about experiment'
+  def add_result(tracking_file, experiment_id)
+    metrics = {}
+    metrics[:rmse] = options[:rmse] if options[:rmse]
+    metrics[:mae] = options[:mae] if options[:mae]
+    metrics[:r2] = options[:r2] if options[:r2]
+    
+    hpm = HyperparameterManager.new
+    if hpm.add_result(tracking_file, experiment_id, metrics, notes: options[:notes])
+      puts "✓ Results added for experiment #{experiment_id}"
+    else
+      puts "✗ Failed to add results"
+    end
+  end
+
+  desc "best-params TRACKING_FILE", "Find best hyperparameters based on metric"
+  option :metric, aliases: :m, type: :string, default: 'rmse', desc: 'Metric to optimize (rmse, mae, r2)'
+  option :ascending, aliases: :a, type: :boolean, default: true, desc: 'Lower is better (true for rmse/mae, false for r2)'
+  def best_params(tracking_file)
+    hpm = HyperparameterManager.new
+    best = hpm.find_best(tracking_file, metric: options[:metric], ascending: options[:ascending])
+    
+    if best
+      puts "\n=== Best Hyperparameters (optimizing #{options[:metric]}) ==="
+      best.each { |param, value| puts "  #{param}: #{value}" }
+    else
+      puts "No completed experiments found"
+    end
+  end
+
+  desc "export-params CONFIG_FILE", "Export hyperparameters in different formats"
+  option :format, aliases: :f, type: :string, default: 'python', desc: 'Format: python, json, yaml, ruby'
+  option :output, aliases: :o, type: :string, desc: 'Output file'
+  def export_params(config_file)
+    hpm = HyperparameterManager.new
+    hpm.export_params(config_file, format: options[:format], output_file: options[:output])
+  end
+
+  desc "compare-experiments TRACKING_FILE IDS", "Compare multiple experiments (comma-separated IDs)"
+  def compare_experiments(tracking_file, ids)
+    experiment_ids = ids.split(',').map(&:to_i)
+    hpm = HyperparameterManager.new
+    hpm.compare_experiments(tracking_file, experiment_ids)
   end
 end
 
