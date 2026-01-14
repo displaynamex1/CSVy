@@ -2,15 +2,36 @@
 
 **Deadline:** Phase 1 due March 2, 2026 (9:00 AM EST)
 
-## Ruby Tasks
+---
 
-### When Data Releases
+## Phase 0: Data Collection (Before Data Release)
+
+- [ ] Scrape/collect injury reports for key players
+  - Check NHL.com injury reports, ESPN, create CSV with [date, team, player, position, status]
+- [ ] Gather travel schedules (back-to-back games, long road trips)
+  - Parse game schedule, calculate days between games and distance traveled (use arena coordinates)
+- [ ] Collect special teams data (power play/penalty kill percentages)
+  - Scrape from NHL stats API or Hockey Reference, calculate rolling 10-game averages
+- [ ] Find goalie starter announcements (if available pre-game)
+  - Check Daily Faceoff, Rotoworld for confirmed starters, update dataset day-of-game
+- [ ] Research coaching changes, player trades during season
+  - Create events table [date, team, event_type, description], join to games by date
+- [ ] Identify division rivalries and historical matchups
+  - Flag division games, calculate head-to-head records, add "rivalry intensity" score
+- [ ] Document arena-specific factors (ice quality, altitude, travel time zones)
+  - Create arena metadata table [arena_id, city, altitude, timezone], join to home team games
+
+---
+
+## Phase 1: Ruby - Data Preprocessing & Hyperparameters
+
+### 1.1 Initial Data Processing
 - [ ] Download competition dataset
 - [ ] Run diagnostics: `ruby cli.rb diagnose data/hockey_challenge.csv`
 - [ ] Run preprocessing: `ruby cli.rb competitive-pipeline data/hockey_challenge.csv -o data/processed`
 - [ ] Verify output files exist in `data/processed/`
 
-### Additional Feature Engineering
+### 1.2 Additional Feature Engineering
 - [ ] External factors: Weather data (if home games, temperature affects ice quality)
   - Scrape weather APIs for game day temps at arena locations, create binary flag for extreme cold (<0°F)
 - [ ] External factors: Travel distance between games (fatigue metric)
@@ -64,18 +85,20 @@
 - [ ] Arena effects: Altitude (if applicable, affects stamina)
   - Binary flag for Denver (5280ft), interaction with opponent's elevation (fatigue for low-elevation teams)
 
-### Generate Hyperparameters
+### 1.3 Generate Hyperparameters
 - [ ] Model 2: `ruby cli.rb hyperparam-grid config/hyperparams/model2_linear_regression.yaml`
 - [ ] Model 3: `ruby cli.rb hyperparam-bayesian config/hyperparams/model3_elo.yaml --iterations 30`
 - [ ] Model 4a: `ruby cli.rb hyperparam-genetic config/hyperparams/model4_xgboost.yaml --population 50 --generations 20`
 - [ ] Model 4b: `ruby cli.rb hyperparam-grid config/hyperparams/model4_random_forest.yaml`
 - [ ] Model 5: `ruby cli.rb hyperparam-grid config/hyperparams/model5_ensemble.yaml`
 
-### Tracking
+### 1.4 Generate Tracking Dashboards
 - [ ] Generate dashboards: `ruby cli.rb report-all`
 - [ ] Commit and push all CSVs to GitHub
 
-## Python Tasks
+---
+
+## P2.1 Advanced Feature Engineeringn
 
 ### Advanced Feature Engineering (Pre-Training)
 - [ ] Create interaction features (home advantage × rest days, goalie save% × opponent offense)
@@ -93,7 +116,7 @@
 - [ ] Implement target encoding for categorical variables (teams, divisions)
   - Use sklearn TargetEncoder with 5-fold CV to prevent leakage, smooth with prior mean
 
-### Training
+### 2.2 Model Training
 - [ ] Model 1: Train baseline (mean/median predictions)
   - `y_pred = np.full(len(X_test), y_train.mean())`, calculate RMSE as benchmark
 - [ ] Model 2: Train all Linear Regression configs, record metrics to CSV
@@ -112,6 +135,21 @@
   - `RandomForestRegressor(**params, n_jobs=-1).fit(X_train, y_train)`, save feature_importances_
 - [ ] Model 4b Advanced: Test ExtraTrees for comparison
   - `ExtraTreesRegressor(n_estimators=500, max_features='sqrt')`, typically less overfitting than RF
+- [ ] Model 4c (Optional): LightGBM (faster than XGBoost, similar accuracy)
+  - `lgb.LGBMRegressor(n_estimators=1000, learning_rate=0.05, num_leaves=31, early_stopping_rounds=50)`
+- [ ] Model 4d (Optional): CatBoost (handles categorical features natively)
+  - `CatBoostRegressor(iterations=1000, cat_features=['team', 'opponent', 'division'])`, no encoding needed
+- [ ] Model 5: Train ensemble (stacking, weighted voting, rank averaging)
+  - Stacking: `StackingRegressor(estimators=[rf, xgb, lgb], final_estimator=Ridge())`
+- [ ] Model 5 Advanced: Dynamic ensemble (weight models by recent performance)
+  - Calculate RMSE on last 20 games per model, weights = 1/RMSE, renormalize to sum=1
+- [ ] Model 6 (Optional): Neural network (LSTM for sequential game data)
+  - `tf.keras.Sequential([LSTM(64, input_shape=(seq_len, features)), Dense(32, 'relu'), Dense(1)])`, use last 10 games as sequence
+- [ ] Model 7 (Optional): Gradient Boosting with quantile regression (prediction intervals)
+  - `GradientBoostingRegressor(loss='quantile', alpha=0.1)` for 10th percentile, alpha=0.9 for 90th
+
+### 2.3 Validation & Testing
+- [ ] Implement time series cross-validation (expanding window, no data leakage)
   - `TimeSeriesSplit(n_splits=5)`, train on games 1-N, test on N+1 to N+M, never shuffle
 - [ ] Implement walk-forward validation (retrain after each game week)
   - Retrain model every 7 games, test on next 7, simulates real deployment scenario
@@ -124,34 +162,34 @@
 - [ ] Perform sensitivity analysis (which features matter most)
   - Permutation importance: shuffle each feature, measure RMSE increase, rank by impact
 - [ ] Test on holdout set (final 10% of season, never touched during training)
-  - Set aside from start, only evaluate once at very end to get unbiased performance estimatedge())`
-- [ ] Model 5 Advanced: Dynamic ensemble (weight models by recent performance)
-  - Calculate RMSE on last 20 games per model, weights = 1/RMSE, renormalize to sum=1
-- [ ] Model 6 (Optional): Neural network (LSTM for sequential game data)
-  - `tf.keras.Sequential([LSTM(64, input_shape=(seq_len, features)), Dense(32, 'relu'), Dense(1)])`, use last 10 games as sequence
-- [ ] Model 7 (Optional): Gradient Boosting with quantile regression (prediction intervals)
-  - `GradientBoostingRegressor(loss='quantile', alpha=0.1)` for 10th percentile, alpha=0.9 for 90th
+  - Set aside from start, only evaluate once at very end to get unbiased performance estimate
 
-### Validation
-- [ ] Implement time series cross-validation (expanding window, no data leakage)
-- [ ] Implement walk-forward validation (retrain after each game week)
-- [ ] Generate learning curves
-  - Train quantile regressors at 0.025, 0.975 for 95% interval, `lower = model_0.025.predict()`, `upper = model_0.975.predict()`
-- [ ] Quantile regression (predict 10th, 50th, 90th percentiles)
-  - Use `GradientBoostingRegressor(loss='quantile', alpha=0.1/0.5/0.9)`, train 3 separate models
-- [ ] Bootstrap predictions (1000 iterations for confidence bounds)
-  - Resample training data 1000x, train model on each, predict on test, calculate std dev of predictions
-- [ ] Conformal prediction (distribution-free uncertainty)
-  - Calculate calibration set residuals, sort, use 90th percentile as prediction interval radius
-- [ ] Ensemble disagreement as uncertainty proxy (high disagreement = high uncertainty)
-  - Calculate std dev of predictions across all models, high std = uncertain prediction
-
-### Uncertainty Quantification
+### 2.4 Uncertainty Quantification
 - [ ] Implement prediction intervals (80%, 90%, 95% confidence)
 - [ ] Quantile regression (predict 10th, 50th, 90th percentiles)
 - [ ] Bootstrap predictions (1000 iterations for confidence bounds)
 - [ ] Conformal prediction (distribution-free uncertainty)
 - [ ] Ensemble disagreement as uncertainty proxy (high disagreement = high uncertainty)
+  - Format: `submission.csv` with columns [game_id, predicted_score_home, predicted_score_away]
+- [ ] Generate visualizations (feature importance, scatter plots, residuals)
+  - `plt.scatter(y_true, y_pred)`, add diagonal line, calculate R², annotate with RMSE
+- [ ] Create SHAP plots (explain individual predictions)
+  - `shap.TreeExplainer(model)`, `shap.summary_plot(shap_values, X_test)`, shows feature contributions
+- [ Calculate std dev of predictions across all models, high std = uncertain prediction
+
+---
+
+## Phase 3: Post-Training Analysis
+
+### 3.1 Ruby Analysis
+- [ ] Pull updated CSVs: `git pull`
+- [ ] Generate final reports: `ruby cli.rb report-all --open`
+- [ ] Find best params for each model: `ruby cli.rb best-params <file> --metric rmse`
+- [ ] Optimize ensemble: `ruby cli.rb ensemble-optimize predictions/ --actuals test.csv`
+- [ ] Analyze diversity: `ruby cli.rb diversity-analysis predictions/ test.csv`
+
+### 3.2 Python Visualizations & Submission
+- [ ] Create final predictions file for submission
   - Format: `submission.csv` with columns [game_id, predicted_score_home, predicted_score_away]
 - [ ] Generate visualizations (feature importance, scatter plots, residuals)
   - `plt.scatter(y_true, y_pred)`, add diagonal line, calculate R², annotate with RMSE
@@ -164,45 +202,22 @@
 - [ ] Verify submission format
   - Check no missing values, scores >= 0, integer values (if required), correct column names
 - [ ] Run final sanity checks (no negative scores, reasonable ranges)
-  - Assert `all(preds >= 0)`, `all(preds <= 15)`, mean predicted score ~3 goals (NHL average
-- [ ] Find best params for each model: `ruby cli.rb best-params <file> --metric rmse`
-- [ ] Optimize ensemble: `ruby cli.rb ensemble-optimize predictions/ --actuals test.csv`
-- [ ] Analyze diversity: `ruby cli.rb diversity-analysis predictions/ test.csv`
+  - Assert `all(preds >= 0)`, `all(preds <= 15)`, mean predicted score ~3 goals (NHL average)
 
-### Python
-  - Check NHL.com injury reports, ESPN, create CSV with [date, team, player, position, status]
-- [ ] Gather travel schedules (back-to-back games, long road trips)
-  - Parse game schedule, calculate days between games and distance traveled (use arena coordinates)
-- [ ] Collect special teams data (power play/penalty kill percentages)
-  - Scrape from NHL stats API or Hockey Reference, calculate rolling 10-game averages
-- [ ] Find goalie starter announcements (if available pre-game)
-  - Check Daily Faceoff, Rotoworld for confirmed starters, update dataset day-of-game
-- [ ] Research coaching changes, player trades during season
-  - Create events table [date, team, event_type, description], join to games by date
-- [ ] Identify division rivalries and historical matchups
-  - Flag division games, calculate head-to-head records, add "rivalry intensity" score
-- [ ] Document arena-specific factors (ice quality, altitude, travel time zones)
-  - Create arena metadata table [arena_id, city, altitude, timezone], join to home team games
-- [ ] Run final sanity checks (no negative scores, reasonable ranges)
+---
 
-## Presentation (March 16-23)
+## Phase 4: Presentation (March 16-23)
+
 - [ ] Create slide deck
-- [Data Collection (Before Training)
-- [ ] Scrape/collect injury reports for key players
-- [ ] Gather travel schedules (back-to-back games, long road trips)
-- [ ] Collect special teams data (power play/penalty kill percentages)
-- [ ] Find goalie starter announcements (if available pre-game)
-- [ ] Research coaching changes, player trades during season
-- [ ] Identify division rivalries and historical matchups
-- [ ] Document arena-specific factors (ice quality, altitude, travel time zones)
+- [ ] Document methodology
+- [ ] Prepare results summary
+- [ ] Clean and comment code
+
+---
 
 ## Success Criteria
+
 - [ ] RMSE < 2.0 (target: 1.7)
 - [ ] Ensemble beats best individual by 15%+
 - [ ] Prediction intervals capture 90% of actual results
 - [ ] Model performs well on all game types (division, conference, regular season phases)
-
-## Success Criteria
-- [ ] RMSE < 2.0 (target: 1.7)
-- [ ] Ensemble beats best individual by 15%+
-- [ ] Submit by March 2, 9:00 AM EST

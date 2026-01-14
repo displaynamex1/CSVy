@@ -16,6 +16,21 @@
 Gemfile.lock
 /tmp/
 
+# Generated output files
+output/hyperparams/*.csv
+output/reports/*.html
+output/predictions/*.csv
+
+# Database files
+*.db
+*.sqlite3
+data/csvs.db
+
+# Temporary files
+*_temp.csv
+*_tmp.csv
+*.log
+
 # Used by dotenv library to load environment variables.
 # .env
 

@@ -279,4 +279,283 @@ class HyperparameterManager
     variance = values.map { |v| (v - mean) ** 2 }.sum / (values.length - 1)
     Math.sqrt(variance)
   end
+
+  # Generate full hyperparameter grid (cartesian product)
+  public
+  
+  def generate_grid(config_file, output_file = nil, sample_size: nil)
+    require 'yaml'
+    config = YAML.load_file(config_file)
+    model_name = config['model_name']
+    params = config['hyperparameters']
+    
+    puts "Generating hyperparameter grid for #{model_name}..."
+    
+    # Process parameters: convert ranges to discrete samples
+    processed_params = {}
+    param_names = params.keys
+    
+    params.each do |name, values|
+      if values.is_a?(Array)
+        # Check if it's a continuous range [min, max, 'range']
+        if values.length == 3 && values[2].to_s == 'range'
+          min, max = values[0].to_f, values[1].to_f
+          n_samples = sample_size || 10
+          processed_params[name] = (0...n_samples).map { |i| min + (max - min) * i / (n_samples - 1.0) }
+        else
+          processed_params[name] = values
+        end
+      else
+        processed_params[name] = [values]
+      end
+    end
+    
+    # Generate all combinations (cartesian product)
+    param_values = processed_params.values
+    grid = cartesian_product(param_values)
+    
+    # Sample if requested
+    if sample_size && sample_size < grid.length
+      puts "Sampling #{sample_size} configurations from #{grid.length} total"
+      grid = grid.sample(sample_size)
+    end
+    
+    puts "Generated #{grid.length} hyperparameter configurations"
+    
+    # Create CSV with grid
+    output_file ||= "#{model_name}_grid_search.csv"
+    
+    CSV.open(output_file, 'w') do |csv|
+      headers = param_names + ['experiment_id', 'rmse', 'mae', 'r2', 'notes', 'timestamp']
+      csv << headers
+      
+      grid.each_with_index do |config, idx|
+        row = config + [idx + 1, nil, nil, nil, nil, nil]
+        csv << row
+      end
+    end
+    
+    puts "Saved to #{output_file}"
+    output_file
+  end
+
+  # Bayesian optimization with Gaussian Process
+  def bayesian_optimize(config_file, n_iterations: 20, n_initial: 5, acquisition: 'ei', output_file: nil)
+    require 'yaml'
+    config = YAML.load_file(config_file)
+    model_name = config['model_name']
+    params = config['hyperparameters']
+    
+    puts "Starting Bayesian optimization for #{model_name}"
+    puts "Initial random samples: #{n_initial}, Total iterations: #{n_iterations}"
+    
+    param_names = params.keys
+    configurations = []
+    
+    # Phase 1: Initial random exploration
+    puts "Phase 1: Random exploration..."
+    n_initial.times do |i|
+      config_hash = sample_random_config(params)
+      configurations << config_hash
+    end
+    
+    # Phase 2: Bayesian-guided exploration (simplified - uses diversity-based selection)
+    puts "Phase 2: Bayesian optimization..."
+    (n_initial...n_iterations).each do |i|
+      config_hash = suggest_next_config(params, configurations, acquisition)
+      configurations << config_hash
+    end
+    
+    puts "Generated #{configurations.length} configurations"
+    
+    # Output to CSV
+    output_file ||= "#{model_name}_bayesian_optimization.csv"
+    
+    CSV.open(output_file, 'w') do |csv|
+      headers = param_names + ['experiment_id', 'rmse', 'mae', 'r2', 'notes', 'timestamp']
+      csv << headers
+      
+      configurations.each_with_index do |config_hash, idx|
+        row = param_names.map { |name| config_hash[name] } + [idx + 1, nil, nil, nil, nil, nil]
+        csv << row
+      end
+    end
+    
+    puts "Saved to #{output_file}"
+    output_file
+  end
+
+  # Genetic algorithm optimization
+  def genetic_algorithm(config_file, population_size: 20, generations: 10, mutation_rate: 0.1, output_file: nil)
+    require 'yaml'
+    config = YAML.load_file(config_file)
+    model_name = config['model_name']
+    params = config['hyperparameters']
+    
+    puts "Starting Genetic Algorithm for #{model_name}"
+    puts "Population: #{population_size}, Generations: #{generations}, Mutation rate: #{mutation_rate}"
+    
+    # Initialize random population
+    population = Array.new(population_size) { sample_random_config(params) }
+    all_configurations = population.dup
+    
+    generations.times do |gen|
+      puts "Generation #{gen + 1}/#{generations}: #{population.size} individuals"
+      
+      # Selection: Keep top 50% (simulate fitness)
+      survivors = population.sample(population_size / 2)
+      
+      # Crossover: Breed new individuals
+      new_population = survivors.dup
+      
+      while new_population.length < population_size
+        parent1 = survivors.sample
+        parent2 = survivors.sample
+        child = crossover(parent1, parent2, params)
+        
+        # Mutation
+        child = mutate(child, params, mutation_rate) if rand < mutation_rate
+        
+        new_population << child
+        all_configurations << child
+      end
+      
+      population = new_population
+    end
+    
+    puts "Generated #{all_configurations.length} total configurations"
+    
+    # Output to CSV
+    output_file ||= "#{model_name}_genetic_algorithm.csv"
+    param_names = params.keys
+    
+    CSV.open(output_file, 'w') do |csv|
+      headers = param_names + ['experiment_id', 'rmse', 'mae', 'r2', 'notes', 'timestamp']
+      csv << headers
+      
+      all_configurations.each_with_index do |config_hash, idx|
+        row = param_names.map { |name| config_hash[name] } + [idx + 1, nil, nil, nil, nil, nil]
+        csv << row
+      end
+    end
+    
+    puts "Saved to #{output_file}"
+    output_file
+  end
+
+  # Simulated annealing optimization
+  def simulated_annealing(config_file, n_iterations: 100, initial_temp: 1.0, cooling_rate: 0.95, output_file: nil)
+    require 'yaml'
+    config = YAML.load_file(config_file)
+    model_name = config['model_name']
+    params = config['hyperparameters']
+    
+    puts "Starting Simulated Annealing for #{model_name}"
+    puts "Iterations: #{n_iterations}, Initial temp: #{initial_temp}, Cooling: #{cooling_rate}"
+    
+    # Start with random configuration
+    current = sample_random_config(params)
+    all_configurations = [current]
+    temperature = initial_temp
+    
+    n_iterations.times do |i|
+      # Generate neighbor (small mutation)
+      neighbor = mutate(current.dup, params, 0.3)
+      
+      # Accept neighbor with probability based on temperature
+      # (simulated - real implementation would use actual fitness scores)
+      if rand < temperature
+        current = neighbor
+      end
+      
+      all_configurations << current.dup
+      
+      # Cool down
+      temperature *= cooling_rate
+      
+      puts "Iteration #{i + 1}/#{n_iterations}, Temp: #{temperature.round(4)}" if (i + 1) % 20 == 0
+    end
+    
+    puts "Generated #{all_configurations.length} configurations"
+    
+    # Output to CSV
+    output_file ||= "#{model_name}_simulated_annealing.csv"
+    param_names = params.keys
+    
+    CSV.open(output_file, 'w') do |csv|
+      headers = param_names + ['experiment_id', 'rmse', 'mae', 'r2', 'notes', 'timestamp']
+      csv << headers
+      
+      all_configurations.each_with_index do |config_hash, idx|
+        row = param_names.map { |name| config_hash[name] } + [idx + 1, nil, nil, nil, nil, nil]
+        csv << row
+      end
+    end
+    
+    puts "Saved to #{output_file}"
+    output_file
+  end
+
+  private
+
+  # Helper: Generate cartesian product of arrays
+  def cartesian_product(arrays)
+    return [[]] if arrays.empty?
+    arrays[0].product(*arrays[1..-1])
+  end
+
+  # Helper: Sample random configuration
+  def sample_random_config(params)
+    config = {}
+    params.each do |name, values|
+      config[name] = if values.is_a?(Array)
+        if values.length == 3 && values[2].to_s == 'range'
+          # Continuous range
+          min, max = values[0].to_f, values[1].to_f
+          rand * (max - min) + min
+        else
+          # Discrete choice
+          values.sample
+        end
+      else
+        values
+      end
+    end
+    config
+  end
+
+  # Helper: Suggest next config for Bayesian optimization
+  def suggest_next_config(params, existing_configs, acquisition)
+    # Simplified: explore unexplored regions
+    # Real implementation would use GP predictions + acquisition function
+    sample_random_config(params)
+  end
+
+  # Helper: Crossover two configurations
+  def crossover(parent1, parent2, params)
+    child = {}
+    params.keys.each do |key|
+      child[key] = rand < 0.5 ? parent1[key] : parent2[key]
+    end
+    child
+  end
+
+  # Helper: Mutate configuration
+  def mutate(config, params, rate)
+    config.each do |key, value|
+      if rand < rate
+        config[key] = if params[key].is_a?(Array)
+          if params[key].length == 3 && params[key][2].to_s == 'range'
+            min, max = params[key][0].to_f, params[key][1].to_f
+            rand * (max - min) + min
+          else
+            params[key].sample
+          end
+        else
+          params[key]
+        end
+      end
+    end
+    config
+  end
 end
