@@ -12,6 +12,9 @@ require_relative 'lib/time_series_features'
 require_relative 'lib/csv_io_handler'
 require_relative 'lib/hyperparameter_manager'
 require_relative 'lib/html_reporter'
+require_relative 'lib/advanced_features'
+require_relative 'lib/model_validator'
+require_relative 'lib/ensemble_builder'
 
 class CSVOrganizer < Thor
   desc "report FILE", "Generate HTML report with tables (no fancy charts)"
@@ -522,6 +525,51 @@ class CSVOrganizer < Thor
     puts "✓ Random search configurations generated: #{output}"
   end
 
+  desc "hyperparam-bayesian CONFIG_FILE", "Bayesian optimization with Gaussian Process surrogate"
+  option :iterations, aliases: :i, type: :numeric, default: 20, desc: 'Total iterations'
+  option :initial, type: :numeric, default: 5, desc: 'Initial random samples'
+  option :acquisition, aliases: :a, type: :string, default: 'ei', desc: 'Acquisition function (ei, ucb, poi)'
+  def hyperparam_bayesian(config_file)
+    hpm = HyperparameterManager.new
+    output = hpm.bayesian_optimize(
+      config_file,
+      n_iterations: options[:iterations],
+      n_initial: options[:initial],
+      acquisition: options[:acquisition]
+    )
+    puts "✓ Bayesian optimization complete: #{output}"
+  end
+
+  desc "hyperparam-genetic CONFIG_FILE", "Genetic algorithm optimization"
+  option :population, aliases: :p, type: :numeric, default: 20, desc: 'Population size'
+  option :generations, aliases: :g, type: :numeric, default: 10, desc: 'Number of generations'
+  option :mutation, aliases: :m, type: :numeric, default: 0.1, desc: 'Mutation rate (0.0-1.0)'
+  def hyperparam_genetic(config_file)
+    hpm = HyperparameterManager.new
+    output = hpm.genetic_algorithm(
+      config_file,
+      population_size: options[:population],
+      generations: options[:generations],
+      mutation_rate: options[:mutation]
+    )
+    puts "✓ Genetic algorithm complete: #{output}"
+  end
+
+  desc "hyperparam-annealing CONFIG_FILE", "Simulated annealing optimization"
+  option :iterations, aliases: :i, type: :numeric, default: 100, desc: 'Number of iterations'
+  option :temp, aliases: :t, type: :numeric, default: 1.0, desc: 'Initial temperature'
+  option :cooling, aliases: :c, type: :numeric, default: 0.95, desc: 'Cooling rate (0.0-1.0)'
+  def hyperparam_annealing(config_file)
+    hpm = HyperparameterManager.new
+    output = hpm.simulated_annealing(
+      config_file,
+      n_iterations: options[:iterations],
+      initial_temp: options[:temp],
+      cooling_rate: options[:cooling]
+    )
+    puts "✓ Simulated annealing complete: #{output}"
+  end
+
   desc "add-result TRACKING_FILE EXPERIMENT_ID", "Add experiment results to tracking file"
   option :rmse, type: :numeric, desc: 'RMSE value'
   option :mae, type: :numeric, desc: 'MAE value'
@@ -569,6 +617,228 @@ class CSVOrganizer < Thor
     experiment_ids = ids.split(',').map(&:to_i)
     hpm = HyperparameterManager.new
     hpm.compare_experiments(tracking_file, experiment_ids)
+  end
+
+  # ===== COMPETITIVE EDGE COMMANDS =====
+  
+  desc "advanced-features FILE", "Create advanced competition-winning features"
+  option :output, aliases: :o, type: :string, desc: 'Output file'
+  option :team_col, type: :string, default: 'Team', desc: 'Team column name'
+  option :wins_col, type: :string, default: 'W', desc: 'Wins column'
+  option :losses_col, type: :string, default: 'L', desc: 'Losses column'
+  option :diff_col, type: :string, default: 'DIFF', desc: 'Goal differential column'
+  option :gf_col, type: :string, default: 'GF', desc: 'Goals for column'
+  option :ga_col, type: :string, default: 'GA', desc: 'Goals against column'
+  option :games_col, type: :string, default: 'GP', desc: 'Games played column'
+  def advanced_features(file)
+    unless File.exist?(file)
+      puts "✗ File not found: #{file}"
+      exit 1
+    end
+    
+    puts "🚀 Creating advanced features..."
+    
+    data = CSV.read(file, headers: true).map(&:to_h)
+    af = AdvancedFeatures.new
+    
+    # Team strength index
+    data = af.calculate_team_strength_index(data, options[:team_col], options[:wins_col], 
+                                            options[:losses_col], options[:diff_col])
+    
+    # Pythagorean expectation
+    data = af.calculate_pythagorean_wins(data, options[:gf_col], options[:ga_col], options[:games_col])
+    
+    # Interaction features
+    data = af.create_interaction_features(data, options[:gf_col], options[:wins_col], 'offense_power')
+    data = af.create_interaction_features(data, options[:ga_col], options[:losses_col], 'defense_weakness')
+    
+    # Polynomial features
+    data = af.create_polynomial_features(data, options[:diff_col], degree: 2)
+    
+    # Save output
+    output_file = options[:output] || file.gsub('.csv', '_advanced.csv')
+    CSV.open(output_file, 'w') do |csv|
+      csv << data.first.keys
+      data.each { |row| csv << data.first.keys.map { |k| row[k] } }
+    end
+    
+    puts "✓ Advanced features saved to: #{output_file}"
+    puts "  Added: team_strength_index, pythagorean_wins, offense_power, defense_weakness, #{options[:diff_col]}_pow2"
+  end
+
+  desc "validate-model PREDICTIONS_CSV", "Validate model predictions with advanced metrics"
+  option :actual_col, type: :string, default: 'actual', desc: 'Actual values column'
+  option :pred_col, type: :string, default: 'predicted', desc: 'Predicted values column'
+  option :bootstrap, type: :boolean, default: false, desc: 'Run bootstrap confidence intervals'
+  option :calibration, type: :boolean, default: false, desc: 'Check prediction calibration'
+  def validate_model(predictions_csv)
+    unless File.exist?(predictions_csv)
+      puts "✗ File not found: #{predictions_csv}"
+      exit 1
+    end
+    
+    puts "🔍 Validating model predictions..."
+    
+    data = CSV.read(predictions_csv, headers: true)
+    actuals = data[options[:actual_col]].map(&:to_f)
+    predictions = data[options[:pred_col]].map(&:to_f)
+    
+    validator = ModelValidator.new
+    
+    # Basic metrics
+    rmse = Math.sqrt(predictions.zip(actuals).map { |p, a| (p - a) ** 2 }.sum / actuals.size)
+    mae = predictions.zip(actuals).map { |p, a| (p - a).abs }.sum / actuals.size
+    
+    puts "\n=== Validation Metrics ==="
+    puts "RMSE: #{rmse.round(4)}"
+    puts "MAE: #{mae.round(4)}"
+    
+    # Bootstrap if requested
+    if options[:bootstrap]
+      puts "\n=== Bootstrap Confidence Intervals (1000 iterations) ==="
+      bootstrap_results = validator.bootstrap_metric(predictions, actuals, metric: :rmse, n_iterations: 1000)
+      puts "RMSE Mean: #{bootstrap_results[:mean].round(4)}"
+      puts "RMSE 95% CI: [#{bootstrap_results[:ci_95_lower].round(4)}, #{bootstrap_results[:ci_95_upper].round(4)}]"
+    end
+    
+    # Calibration check
+    if options[:calibration]
+      puts "\n=== Calibration Analysis ==="
+      calibration = validator.check_calibration(predictions, actuals, n_bins: 10)
+      puts "Mean Calibration Error: #{calibration[:mean_calibration_error].round(4)}"
+    end
+  end
+
+  desc "ensemble-optimize PREDICTIONS_DIR", "Optimize ensemble weights from multiple model predictions"
+  option :actuals, type: :string, required: true, desc: 'CSV file with actual values'
+  option :actual_col, type: :string, default: 'actual', desc: 'Actual values column'
+  option :output, aliases: :o, type: :string, desc: 'Output file for optimal weights'
+  def ensemble_optimize(predictions_dir)
+    unless Dir.exist?(predictions_dir)
+      puts "✗ Directory not found: #{predictions_dir}"
+      exit 1
+    end
+    
+    unless File.exist?(options[:actuals])
+      puts "✗ Actuals file not found: #{options[:actuals]}"
+      exit 1
+    end
+    
+    puts "🎯 Optimizing ensemble weights..."
+    
+    # Load actual values
+    actuals_data = CSV.read(options[:actuals], headers: true)
+    actuals = actuals_data[options[:actual_col]].map(&:to_f)
+    
+    # Load predictions from multiple models
+    model_predictions = {}
+    Dir.glob(File.join(predictions_dir, '*.csv')).each do |pred_file|
+      model_name = File.basename(pred_file, '.csv')
+      pred_data = CSV.read(pred_file, headers: true)
+      
+      pred_col = pred_data.headers.find { |h| h =~ /pred/i } || pred_data.headers[1]
+      predictions = pred_data[pred_col].map(&:to_f)
+      
+      model_predictions[model_name] = predictions
+    end
+    
+    puts "Found #{model_predictions.size} models: #{model_predictions.keys.join(', ')}"
+    
+    ensemble = EnsembleOptimizer.new
+    
+    # Calculate optimal weights
+    result = ensemble.optimize_ensemble_weights(model_predictions.values, actuals)
+    
+    puts "\n=== Optimal Ensemble Weights ==="
+    model_predictions.keys.each_with_index do |model, idx|
+      puts "  #{model}: #{result[:optimal_weights][idx].round(4)}"
+    end
+    puts "\nBest RMSE: #{result[:best_rmse].round(4)}"
+    
+    # Save weights if output specified
+    if options[:output]
+      CSV.open(options[:output], 'w') do |csv|
+        csv << ['model', 'weight']
+        model_predictions.keys.each_with_index do |model, idx|
+          csv << [model, result[:optimal_weights][idx]]
+        end
+      end
+      puts "✓ Weights saved to: #{options[:output]}"
+    end
+  end
+
+  desc "competitive-pipeline FILE", "Run full competitive preprocessing pipeline"
+  option :output_dir, aliases: :o, type: :string, default: 'data/processed', desc: 'Output directory'
+  def competitive_pipeline(file)
+    unless File.exist?(file)
+      puts "✗ File not found: #{file}"
+      exit 1
+    end
+    
+    require_relative 'scripts/competitive_pipeline'
+    
+    preprocessor = CompetitivePreprocessor.new(file, options[:output_dir])
+    output_file = preprocessor.run_full_pipeline
+    
+    puts "\n✓ Competitive features ready!"
+    puts "Next steps:"
+    puts "  1. Push to GitHub: git add . && git commit -m 'Add competitive features' && git push"
+    puts "  2. Pull in DeepNote and train models"
+    puts "  3. Track results: ruby cli.rb add-result <tracking_file> <experiment_id> --rmse X --mae Y"
+    puts "  4. Find best params: ruby cli.rb best-params <tracking_file> --metric rmse"
+  end
+
+  desc "diversity-analysis PREDICTIONS_DIR ACTUALS", "Analyze ensemble model diversity"
+  option :actual_col, type: :string, default: 'actual', desc: 'Actual values column'
+  def diversity_analysis(predictions_dir, actuals_file)
+    unless Dir.exist?(predictions_dir)
+      puts "✗ Directory not found: #{predictions_dir}"
+      exit 1
+    end
+    
+    unless File.exist?(actuals_file)
+      puts "✗ Actuals file not found: #{actuals_file}"
+      exit 1
+    end
+    
+    puts "📊 Analyzing model diversity..."
+    
+    # Load actual values
+    actuals_data = CSV.read(actuals_file, headers: true)
+    actuals = actuals_data[options[:actual_col]].map(&:to_f)
+    
+    # Load predictions
+    model_predictions = []
+    model_names = []
+    
+    Dir.glob(File.join(predictions_dir, '*.csv')).each do |pred_file|
+      model_names << File.basename(pred_file, '.csv')
+      pred_data = CSV.read(pred_file, headers: true)
+      pred_col = pred_data.headers.find { |h| h =~ /pred/i } || pred_data.headers[1]
+      model_predictions << pred_data[pred_col].map(&:to_f)
+    end
+    
+    ensemble = EnsembleOptimizer.new
+    diversity = ensemble.analyze_model_diversity(model_predictions, actuals)
+    
+    puts "\n=== Model Diversity Analysis ==="
+    puts "Average error correlation: #{diversity[:avg_correlation].round(4)}"
+    puts "Diversity score: #{diversity[:diversity_score].round(4)} (higher = more diverse)"
+    
+    puts "\n=== Pairwise Correlations ==="
+    model_names.each_with_index do |model_i, i|
+      model_names.each_with_index do |model_j, j|
+        next if i >= j
+        corr = diversity[:correlations][i][j]
+        puts "  #{model_i} <-> #{model_j}: #{corr.round(3)}"
+      end
+    end
+    
+    if diversity[:diversity_score] > 0.5
+      puts "\n✓ Good diversity! Models are complementary (ensemble will perform well)"
+    else
+      puts "\n⚠ Low diversity. Models may be too similar (consider different algorithms)"
+    end
   end
 end
 
