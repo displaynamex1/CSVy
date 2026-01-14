@@ -1,8 +1,7 @@
 # CSVy - Competitive Hockey Prediction Toolkit
 
-**Ruby-based CSV preprocessing and feature engineering utility designed to WIN hockey prediction competitions.**
+**Ruby-based CSV preprocessing and feature engineering utility
 
-## 🏆 What Makes This Win
 
 ### Advanced Feature Engineering (14+ Features)
 - **Team Strength Index**: Composite win rate + goal differential metric
@@ -41,7 +40,7 @@
 - **Calibration Analysis**: Binned predictions vs actuals
 - **Learning Curves**: Performance vs training size
 
-## 🚀 Quick Start (3 Commands to Win)
+##  Quick Start (3 Commands to Win)
 
 ```bash
 # 1. Full competitive preprocessing pipeline
@@ -165,7 +164,7 @@ ruby cli.rb validate-model final_ensemble_preds.csv \
 
 ---
 
-## 🎯 Key Commands Reference
+## Key Commands Reference
 
 ### Preprocessing & Feature Engineering
 | Command | Purpose | Example |
@@ -200,7 +199,7 @@ ruby cli.rb validate-model final_ensemble_preds.csv \
 
 ---
 
-## 🏅 The 5-Model Winning Strategy
+## The 5-Model Winning Strategy
 
 ### Model 1: Baseline (Benchmark)
 - **Purpose**: Establish baseline performance
@@ -242,7 +241,7 @@ ruby cli.rb validate-model final_ensemble_preds.csv \
 
 ---
 
-## 💡 Winning Tips
+## Winning Tips
 
 ### 1. Feature Engineering is 80% of Success
 ```bash
@@ -309,7 +308,7 @@ ruby cli.rb validate-model preds.csv --bootstrap
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 CSVy/
@@ -344,7 +343,7 @@ CSVy/
 
 ---
 
-## 🔥 Complete Example (Start to Finish)
+## Complete Example (Start to Finish)
 
 ```bash
 # ===== PHASE 1: PREPROCESSING =====
@@ -387,7 +386,7 @@ ruby cli.rb validate-model final_ensemble_preds.csv --bootstrap --calibration
 
 ---
 
-## 📈 Expected Performance
+## Expected Performance
 
 | Model | RMSE | MAE | R² | Notes |
 |-------|------|-----|----|----|
@@ -402,7 +401,7 @@ ruby cli.rb validate-model final_ensemble_preds.csv --bootstrap --calibration
 
 ---
 
-## 🛠 Requirements
+## Requirements
 
 - Ruby 2.7+
 - Thor gem (`gem install thor`)
@@ -414,7 +413,7 @@ bundle install
 
 ---
 
-## 🔗 Integration with DeepNote
+## Integration with DeepNote
 
 ### Setup
 1. Create DeepNote project
@@ -438,19 +437,19 @@ ruby cli.rb best-params experiments/grid.csv --metric rmse
 
 ---
 
-## 🏆 Built to Win
+## Built to Win
 
 **CSVy contains everything needed to dominate hockey prediction competitions:**
 
-✅ **40+ CLI commands**  
-✅ **14+ advanced features** (momentum, clutch, pythagorean, strength index)  
-✅ **5 optimization algorithms** (Grid, Random, Bayesian, Genetic, Annealing)  
-✅ **Ensemble methods** (Stacking, Blending, Weighted voting)  
-✅ **Model validation** (Bootstrap CI, Calibration, Time series CV)  
-✅ **6 hyperparameter configs** (2,812 total combinations)  
-✅ **Complete preprocessing pipeline**  
-✅ **Diversity analysis** (Ensure complementary models)  
-✅ **Overfitting detection** (Train vs test monitoring)  
+**40+ CLI commands**  
+**14+ advanced features** (momentum, clutch, pythagorean, strength index)  
+**5 optimization algorithms** (Grid, Random, Bayesian, Genetic, Annealing)  
+**Ensemble methods** (Stacking, Blending, Weighted voting)  
+**Model validation** (Bootstrap CI, Calibration, Time series CV)  
+**6 hyperparameter configs** (2,812 total combinations)  
+**Complete preprocessing pipeline**  
+**Diversity analysis** (Ensure complementary models)  
+**Overfitting detection** (Train vs test monitoring)  
 
 ### What Sets This Apart:
 - **Mathematical rigor**: Bayesian optimization, Gaussian Processes, Expected Improvement
@@ -461,7 +460,7 @@ ruby cli.rb best-params experiments/grid.csv --metric rmse
 
 ---
 
-## 📞 Usage Questions?
+## Usage Questions?
 
 ```bash
 # List all commands
@@ -475,7 +474,7 @@ ruby cli.rb help ensemble-optimize
 
 ---
 
-**Let's win this!** 🚀🏒🏆
+**Let's win this!** 
 
   ```
   x_standardized = (x - μ) / σ
