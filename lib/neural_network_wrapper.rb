@@ -34,8 +34,8 @@ class NeuralNetworkWrapper
     config_file ||= File.join(Dir.pwd, 'config', 'hyperparams', 'model6_neural_network.yaml')
     output_csv ||= 'model6_neural_network_results.csv'
     
-    # Build command
-    cmd = [
+    # Build command array
+    cmd_array = [
       @python_exe,
       @python_script,
       data_file,
@@ -43,12 +43,13 @@ class NeuralNetworkWrapper
       '--config', config_file,
       '--search', iterations.to_s,
       '--output', output_csv
-    ].join(' ')
+    ]
     
-    logger.info "Executing: #{cmd}"
+    logger.info "Executing: #{cmd_array.join(' ')}"
     
     # Run training (this may take a while)
-    success = system(cmd)
+    # Use array form to prevent shell injection
+    success = system(*cmd_array)
     
     unless success
       raise "Neural network training failed. Check Python dependencies: pip install tensorflow scikit-learn pandas numpy pyyaml"
@@ -131,22 +132,32 @@ class NeuralNetworkWrapper
   def check_dependencies
     logger.info "Checking Python dependencies..."
     
-    packages = ['tensorflow', 'sklearn', 'pandas', 'numpy', 'yaml']
-    missing = []
+    # Map Python import names to pip package names
+    packages = {
+      'tensorflow' => 'tensorflow',
+      'sklearn' => 'scikit-learn',
+      'pandas' => 'pandas',
+      'numpy' => 'numpy',
+      'yaml' => 'pyyaml'
+    }
     
-    packages.each do |pkg|
+    missing_imports = []
+    missing_packages = []
+    
+    packages.each do |import_name, package_name|
       # Use array form of system() to avoid shell injection
-      unless system(@python_exe, '-c', "import #{pkg}", out: File::NULL, err: File::NULL)
-        missing << pkg
+      unless system(@python_exe, '-c', "import #{import_name}", out: File::NULL, err: File::NULL)
+        missing_imports << import_name
+        missing_packages << package_name
       end
     end
     
-    if missing.empty?
+    if missing_imports.empty?
       logger.info "✓ All Python dependencies installed"
       true
     else
-      logger.error "✗ Missing Python packages: #{missing.join(', ')}"
-      logger.error "  Install with: pip install #{missing.join(' ')}"
+      logger.error "✗ Missing Python packages: #{missing_imports.join(', ')}"
+      logger.error "  Install with: pip install #{missing_packages.join(' ')}"
       false
     end
   end
@@ -170,6 +181,10 @@ class NeuralNetworkWrapper
   
   # Create temporary prediction script
   def create_prediction_script
+    # Escape paths for safe embedding in Python script
+    model_path_escaped = @model_path.to_json
+    scaler_path_escaped = @scaler_path.to_json
+    
     script_content = <<~PYTHON
       import sys
       import json
@@ -181,8 +196,8 @@ class NeuralNetworkWrapper
       
       def predict(data_file, target_col):
           # Load model and scaler
-          model = keras.models.load_model('#{@model_path}')
-          with open('#{@scaler_path}', 'rb') as f:
+          model = keras.models.load_model(#{model_path_escaped})
+          with open(#{scaler_path_escaped}, 'rb') as f:
               scaler = pickle.load(f)
           
           # Load data
