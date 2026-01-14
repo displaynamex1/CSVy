@@ -180,18 +180,29 @@ class HyperparameterManager
     data = CSV.read(filename, headers: true)
     return if data.empty?
 
-    # Determine which columns are params vs metrics by examining first result
-    # Assume columns that were written first are params, rest are metrics
-    headers = data.headers
+    # Common metric column names to identify metrics vs params
+    known_metrics = ['rmse', 'mae', 'r2', 'mse', 'accuracy', 'precision', 'recall', 
+                     'f1', 'auc', 'loss', 'error', 'score']
     
     data.each do |row|
       hash = row.to_h
       # Parse JSON if values look like JSON
       hash.each { |k, v| hash[k] = JSON.parse(v) rescue v }
       
-      # For now, treat all columns as params since we don't have metadata
-      # This maintains backward compatibility
-      @results << { params: hash, metrics: {} }
+      # Separate params and metrics based on column names
+      params_hash = {}
+      metrics_hash = {}
+      
+      hash.each do |key, value|
+        # Check if this looks like a metric (case-insensitive)
+        if known_metrics.any? { |m| key.to_s.downcase.include?(m) }
+          metrics_hash[key.to_sym] = value
+        else
+          params_hash[key.to_sym] = value
+        end
+      end
+      
+      @results << { params: params_hash, metrics: metrics_hash }
     end
   end
 
