@@ -54,13 +54,23 @@ class HyperparameterManager
     else
       # New-style call: random_search(iterations) { |sample, i| ... }
       iterations = arg1
+      results = []
+      
       iterations.times do |i|
         sample = {}
         @params.each do |param_name, config|
           sample[param_name] = sample_param(config)
         end
-        yield(sample, i) if block_given?
+        
+        if block_given?
+          yield(sample, i)
+        else
+          results << sample
+        end
       end
+      
+      # Return collected samples if no block given
+      block_given? ? nil : results
     end
   end
 
