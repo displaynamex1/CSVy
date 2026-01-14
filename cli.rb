@@ -529,45 +529,58 @@ class CSVOrganizer < Thor
   option :iterations, aliases: :i, type: :numeric, default: 20, desc: 'Total iterations'
   option :initial, type: :numeric, default: 5, desc: 'Initial random samples'
   option :acquisition, aliases: :a, type: :string, default: 'ei', desc: 'Acquisition function (ei, ucb, poi)'
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file'
   def hyperparam_bayesian(config_file)
     hpm = HyperparameterManager.new
     output = hpm.bayesian_optimize(
       config_file,
       n_iterations: options[:iterations],
       n_initial: options[:initial],
-      acquisition: options[:acquisition]
+      acquisition: options[:acquisition],
+      output_file: options[:output]
     )
     puts "✓ Bayesian optimization complete: #{output}"
+    puts "  Generated #{options[:iterations]} configurations"
+    puts "  Next: Train models and use 'add-result' to record metrics"
   end
 
   desc "hyperparam-genetic CONFIG_FILE", "Genetic algorithm optimization"
   option :population, aliases: :p, type: :numeric, default: 20, desc: 'Population size'
   option :generations, aliases: :g, type: :numeric, default: 10, desc: 'Number of generations'
   option :mutation, aliases: :m, type: :numeric, default: 0.1, desc: 'Mutation rate (0.0-1.0)'
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file'
   def hyperparam_genetic(config_file)
     hpm = HyperparameterManager.new
     output = hpm.genetic_algorithm(
       config_file,
       population_size: options[:population],
       generations: options[:generations],
-      mutation_rate: options[:mutation]
+      mutation_rate: options[:mutation],
+      output_file: options[:output]
     )
+    total_configs = options[:population] + (options[:population] / 2) * options[:generations]
     puts "✓ Genetic algorithm complete: #{output}"
+    puts "  Generated ~#{total_configs} configurations"
+    puts "  Next: Train models and use 'add-result' to record metrics"
   end
 
   desc "hyperparam-annealing CONFIG_FILE", "Simulated annealing optimization"
   option :iterations, aliases: :i, type: :numeric, default: 100, desc: 'Number of iterations'
   option :temp, aliases: :t, type: :numeric, default: 1.0, desc: 'Initial temperature'
   option :cooling, aliases: :c, type: :numeric, default: 0.95, desc: 'Cooling rate (0.0-1.0)'
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file'
   def hyperparam_annealing(config_file)
     hpm = HyperparameterManager.new
     output = hpm.simulated_annealing(
       config_file,
       n_iterations: options[:iterations],
       initial_temp: options[:temp],
-      cooling_rate: options[:cooling]
+      cooling_rate: options[:cooling],
+      output_file: options[:output]
     )
     puts "✓ Simulated annealing complete: #{output}"
+    puts "  Generated #{options[:iterations] + 1} configurations"
+    puts "  Next: Train models and use 'add-result' to record metrics"
   end
 
   desc "add-result TRACKING_FILE EXPERIMENT_ID", "Add experiment results to tracking file"
@@ -786,6 +799,36 @@ class CSVOrganizer < Thor
     puts "  2. Pull in DeepNote and train models"
     puts "  3. Track results: ruby cli.rb add-result <tracking_file> <experiment_id> --rmse X --mae Y"
     puts "  4. Find best params: ruby cli.rb best-params <tracking_file> --metric rmse"
+  end
+
+  desc "feature-correlation FILE TARGET_COL", "Analyze feature correlations with target column"
+  option :output, aliases: :o, type: :string, desc: 'Output CSV file for correlations'
+  def feature_correlation(file, target_col)
+    unless File.exist?(file)
+      puts "✗ File not found: #{file}"
+      exit 1
+    end
+    
+    puts "📊 Analyzing feature correlations..."
+    
+    data = CSV.read(file, headers: true).map(&:to_h)
+    af = AdvancedFeatures.new
+    
+    # Get all numeric feature columns
+    feature_cols = data.first.keys.reject { |k| k == target_col || k.match?(/^(experiment_id|timestamp|notes)$/i) }
+    
+    correlations = af.analyze_feature_correlations(data, target_col, feature_cols)
+    
+    # Save to CSV if output specified
+    if options[:output]
+      CSV.open(options[:output], 'w') do |csv|
+        csv << ['feature', 'correlation', 'abs_correlation']
+        correlations.sort_by { |k, v| -v.abs }.each do |feature, corr|
+          csv << [feature, corr, corr.abs]
+        end
+      end
+      puts "✓ Correlations saved to: #{options[:output]}"
+    end
   end
 
   desc "diversity-analysis PREDICTIONS_DIR ACTUALS", "Analyze ensemble model diversity"
