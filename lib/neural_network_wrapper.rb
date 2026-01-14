@@ -135,8 +135,8 @@ class NeuralNetworkWrapper
     missing = []
     
     packages.each do |pkg|
-      cmd = "#{@python_exe} -c \"import #{pkg}\""
-      unless system(cmd, out: File::NULL, err: File::NULL)
+      # Use array form of system() to avoid shell injection
+      unless system(@python_exe, '-c', "import #{pkg}", out: File::NULL, err: File::NULL)
         missing << pkg
       end
     end
