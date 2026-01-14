@@ -11,8 +11,33 @@ require_relative 'lib/csv_diagnostics'
 require_relative 'lib/time_series_features'
 require_relative 'lib/csv_io_handler'
 require_relative 'lib/hyperparameter_manager'
+require_relative 'lib/html_reporter'
 
 class CSVOrganizer < Thor
+  desc "report FILE", "Generate HTML report with tables (no fancy charts)"
+  option :output, aliases: :o, type: :string, desc: 'Output HTML file (default: FILE_report.html)'
+  def report(file)
+    unless File.exist?(file)
+      puts "✗ File not found: #{file}"
+      exit 1
+    end
+    
+    reporter = HTMLReporter.new
+    output_file = reporter.generate_diagnostic_report(file, options[:output])
+    
+    puts "✓ HTML report generated: #{output_file}"
+    puts "\nOpening in browser..."
+    
+    # Open in default browser
+    if RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/
+      system("start #{output_file}")
+    elsif RbConfig::CONFIG['host_os'] =~ /darwin/
+      system("open #{output_file}")
+    elsif RbConfig::CONFIG['host_os'] =~ /linux|bsd/
+      system("xdg-open #{output_file}")
+    end
+  end
+
   desc "diagnose FILE", "Deep analysis of CSV data quality - detects mixed types, missing values, outliers, distribution issues"
   def diagnose(file)
     unless File.exist?(file)

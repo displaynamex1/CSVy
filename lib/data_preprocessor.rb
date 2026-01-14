@@ -44,7 +44,9 @@ class DataPreprocessor
     logger.info "Label encoding complete. Original column preserved, encoded column added"
     logger.info "Encoding map: #{encoding_map}"
     data
-  end - adds new column, preserves original
+  end
+
+  # Normalize: adds new column, preserves original
   def normalize(data, column_name)
     logger.info "Normalizing column: #{column_name}"
     
@@ -67,11 +69,11 @@ class DataPreprocessor
     end
     
     logger.info "Normalization complete. Original column preserved, normalized column added"
-    logger.info "Range: min=#{min_val}, max=#{max_val}
-    
-    logger.info "Normalization complete (min: #{min_val}, max: #{max_val})"
+    logger.info "Range: min=#{min_val}, max=#{max_val}"
     data
-  end - adds new column, preserves original
+  end
+
+  # Standardize: adds new column, preserves original
   def standardize(data, column_name)
     logger.info "Standardizing column: #{column_name}"
     
@@ -94,9 +96,7 @@ class DataPreprocessor
     end
     
     logger.info "Standardization complete. Original column preserved, standardized column added"
-    logger.info "Stats: mean=#{mean.round(3)}, std=#{std_dev.round(3)}
-    
-    logger.info "Standardization complete (mean: #{mean.round(3)}, std: #{std_dev.round(3)})"
+    logger.info "Stats: mean=#{mean.round(3)}, std=#{std_dev.round(3)}"
     data
   end
 
