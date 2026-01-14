@@ -110,6 +110,16 @@ class NeuralNetworkWrapper
     
     results = CSV.read(csv_file, headers: true).map(&:to_h)
     
+    if results.empty?
+      logger.warn "No results found in #{csv_file}"
+      return {
+        results: [],
+        best: nil,
+        best_rmse: nil,
+        best_r2: nil
+      }
+    end
+    
     logger.info "Loaded #{results.size} experiment results"
     
     # Find best result
@@ -208,6 +218,13 @@ class NeuralNetworkWrapper
           else:
               X = df
               y = None
+          
+          # Filter out non-numeric columns (e.g., team names, IDs)
+          numeric_cols = X.select_dtypes(include=[np.number]).columns
+          if len(numeric_cols) < len(X.columns):
+              dropped = set(X.columns) - set(numeric_cols)
+              print(f"Warning: Dropping non-numeric columns: {dropped}", file=sys.stderr)
+              X = X[numeric_cols]
           
           # Make predictions
           X_scaled = scaler.transform(X)
