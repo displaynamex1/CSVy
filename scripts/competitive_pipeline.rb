@@ -445,8 +445,23 @@ class CompetitivePreprocessor
   def parse_date(date_str)
     return Date.today if date_str.nil? || date_str.to_s.strip.empty?
     Date.parse(date_str.to_s)
-  rescue
+  rescue => e
+    @logger.warn "Could not parse date '#{date_str}': #{e.message}, using today"
     Date.today
+  end
+  
+  def safe_float(value, default: 0.0)
+    return default if value.nil? || value.to_s.strip.empty?
+    value.to_f
+  rescue
+    default
+  end
+  
+  def safe_int(value, default: 0)
+    return default if value.nil? || value.to_s.strip.empty?
+    value.to_i
+  rescue
+    default
   end
 end
 
