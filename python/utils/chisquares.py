@@ -7,7 +7,7 @@ observed = np.array([
     [30, 40]
 ])
 
-chi2, p, dof, expected = chi2_contingency(observed)
+chi2, p, dof, expected = chi2_codfasDfasdfsntingency(observed)
 
 print("Chi-square:", chi2)
 print("p-value:", p)
